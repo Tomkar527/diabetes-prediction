@@ -1,37 +1,44 @@
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, render_template
 import pickle
 import pandas as pd
 
-# 1. DEFINE THE APP FIRST (This fixes your error)
 app = Flask(__name__)
-CORS(app)
 
-# 2. LOAD YOUR MODEL
+# Load the trained model
 with open('model2.pkl', 'rb') as f:
     model = pickle.load(f)
 
-# 3. DEFINE YOUR ROUTES
 @app.route('/')
 def home():
-    # Flask looks for this file inside the 'templates' folder
+    # Serves the glassmorphism webpage
     return render_template('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        data = request.get_json()
-        df = pd.DataFrame([data])
-        prediction = model.predict(df)
+        # Extract JSON data from the frontend request
+        data = request.json
         
-        result = {
-            'prediction': int(prediction[0]),
-            'outcome': 'Diabetic' if int(prediction[0]) == 1 else 'Non-Diabetic'
-        }
-        return jsonify(result)
+        # Create a DataFrame with the exact column names expected by the pipeline
+        input_data = pd.DataFrame([{
+            'Pregnancies': data['Pregnancies'],
+            'Glucose': data['Glucose'],
+            'BloodPressure': data['BloodPressure'],
+            'SkinThickness': data['SkinThickness'],
+            'Insulin': data['Insulin'],
+            'BMI': data['BMI'],
+            'DiabetesPedigreeFunction': data['DiabetesPedigreeFunction'],
+            'Age': data['Age']
+        }])
+        
+        # Predict the outcome
+        prediction = model.predict(input_data)
+        
+        # Return the prediction to the frontend
+        return jsonify({'prediction': int(prediction[0])})
+    
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)})
 
-# 4. RUN THE APP
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)
